@@ -55,7 +55,8 @@ For instance, you may have sections such as ~Multiple choice~ and ~Short answer~
 #+LaTeX_header: \newcommand{\sectionheader}{~}
 #+LaTeX_header: \rhead{\sectionheader}
 
-Note to self: this is probably not necessary.
+For the front page specifically, we don't want a header;
+we'll use this ~plain~ style for that page.
 
 # LaTeX_header: \fancypagestyle{plain}{
 # LaTeX_header:   \rhead{~}
@@ -63,6 +64,7 @@ Note to self: this is probably not necessary.
 # LaTeX_header:   \cfoot{~}
 # LaTeX_header:   \rfoot{\thepage\ of \pageref{LastPage}}
 # LaTeX_header: }
+
 ** The front page                                                   :ignore:
 
 #+begin_export latex
