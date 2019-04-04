@@ -49,6 +49,10 @@ but we don't want them there.
 Instead, make them the right footer, with the format ~n of N~.
 #+LaTeX_header: \rfoot{\thepage\ of \pageref{LastPage}}
 
+By default the left header is the section title;
+we probably don't want that.
+#+LaTeX_header: \lhead{~}
+
 We provide the option to place a custom header (or several headers)
 by redefining the ~\sectionheader~ command.
 For instance, you may have sections such as ~Multiple choice~ and ~Short answer~.
@@ -99,5 +103,7 @@ Notes and instructions:
 \begin{enumerate}
   \item Your instructions go here.
 \end{enumerate}
+
+\pagebreak
 #+end_export
 
