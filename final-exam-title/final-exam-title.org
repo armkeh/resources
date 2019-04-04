@@ -1,0 +1,101 @@
+#+TITLE: Template for a final exam title page
+#+AUTHOR: Mark Armstrong
+#+STARTUP: indent
+
+
+
+* About this document                                              :noexport:
+
+This file provides a template for a McMaster final exam written
+in ~org-mode~.
+
+With the heading [[McMaster examination front page]] and its contents
+placed in your document (before any other visible elements),
+exporting to PDF should produce an examination
+fitting the exam office's specification.
+
+** Requirements
+
+Aside from ~org-mode~ (obviously required), this template requires
+- the ability to mark headlines to not be exported with ~:ignore:~,
+  which is obtained by adding ~(ox-extras-activate '(ignore-headlines))~
+  to your Emacs initialisation.
+- the ability to mark headlines /and their contents/ to not be exported
+  with ~:noexport:~; this should be available by default, but if not,
+  add ~(add-to-list 'org-export-exclude-tags "noexport")~ to your
+  Emacs initialisation.
+
+* McMaster examination front page                                    :ignore:
+
+** Header options                                                 :noexport:
+
+(Although this section is marked ~:noexport:~, meaning this text
+is not exported, the LaTeX header settings below still apply).
+
+We don't want a title or table of contents for exams.
+#+LaTeX_header: \renewcommand\maketitle{}
+#+LaTeX_header: \renewcommand\tableofcontents{}
+
+We make use of the ~lastpage~ and ~fancyhdr~ packages to automate
+page numbering fitting the exam office's specifications.
+#+LaTeX_header: \usepackage{lastpage}
+#+LaTeX_header: \usepackage{fancyhdr}
+#+LaTeX_header: \pagestyle{fancy}
+
+Page numbers are by default the center footer of the page,
+but we don't want them there.
+#+LaTeX_header: \cfoot{~}
+
+Instead, make them the right footer, with the format ~n of N~.
+#+LaTeX_header: \rfoot{\thepage\ of \pageref{LastPage}}
+
+We provide the option to place a custom header (or several headers)
+by redefining the ~\sectionheader~ command.
+For instance, you may have sections such as ~Multiple choice~ and ~Short answer~.
+#+LaTeX_header: \newcommand{\sectionheader}{~}
+#+LaTeX_header: \rhead{\sectionheader}
+
+Note to self: this is probably not necessary.
+
+# LaTeX_header: \fancypagestyle{plain}{
+# LaTeX_header:   \rhead{~}
+# LaTeX_header:   \renewcommand{\headrulewidth}{0pt}
+# LaTeX_header:   \cfoot{~}
+# LaTeX_header:   \rfoot{\thepage\ of \pageref{LastPage}}
+# LaTeX_header: }
+** The front page                                                   :ignore:
+
+#+begin_export latex
+\thispagestyle{plain}
+
+\begin{flushright}
+  Name \underline{
+    \hphantom{---------------------------------------------}
+  }\\[1em]
+  Student number \underline{
+    \hphantom{---------------------------------------------}
+  }\\[1em]
+\end{flushright}
+~\\
+\begin{center}
+  {\large\textbf{COMPUTER SCIENCE course code here C01}}
+\end{center}
+~\\
+DAY CLASS\\
+DURATION OF EXAMINATION: 2.5 Hours\\
+INSTRUCTOR NAME: your name here\\
+MCMASTER UNIVERSITY FINAL EXAMINATION \hfill Month YEAR\\
+~\\
+~\\
+THIS EXAMINATION PAPER INCLUDES \pageref{LastPage} PAGES
+AND number of questions here QUESTIONS.
+YOU ARE RESPONSIBLE FOR ENSURING THAT YOUR COPY OF THE PAPER IS COMPLETE.
+BRING ANY DISCREPANCY TO THE ATTENTION OF YOUR INVIGILATOR.\\
+~\\
+~\\
+Notes and instructions:  
+\begin{enumerate}
+  \item Your instructions go here.
+\end{enumerate}
+#+end_export
+
