@@ -1,0 +1,432 @@
+
+* CSV decoding
+:Properties:
+:header-args:elm: :tangle ./src/Decoder.elm
+:End:
+
+This decoding code is based on examples provided
+for the ~elm-csv~ package by Brian Hicks;
+see https://github.com/BrianHicks/elm-csv.
+
+#+begin_src elm
+module Decoder exposing (..)
+
+import List exposing (map, filter)
+import List.Extra exposing (unique)
+
+import Regex as Regex
+
+import Dropdown as Dropdown
+
+import Csv.Decode as Decode exposing (Decoder)
+#+end_src
+
+#+begin_src elm
+type alias Answer =
+  { student_num : Int
+  , macid : String
+  , firstname : String
+  , lastname : String
+  , attempt_num : Int
+  , start_time : String
+  , end_time : String
+  , section_num : Maybe Int
+  , question_num : Maybe Int
+  , question_type : Maybe String
+  , question_title : Maybe String
+  , q_text : Maybe String
+  , is_bonus : Maybe String
+  , difficulty : Maybe Int
+  , answer : Maybe String
+  , answer_match : Maybe String
+  , score : Maybe String
+  , out_of : Maybe Int
+  }
+#+end_src
+
+#+begin_src elm
+decoder : Decoder Answer
+decoder =
+  Decode.into Answer
+    |> Decode.pipeline (Decode.field "Org Defined ID" (Decode.int))
+    |> Decode.pipeline (Decode.field "Username"       (Decode.string))
+    |> Decode.pipeline (Decode.field "FirstName"      (Decode.string))
+    |> Decode.pipeline (Decode.field "LastName"       (Decode.string))
+    |> Decode.pipeline (Decode.field "Attempt #"      (Decode.int))
+    |> Decode.pipeline (Decode.field "Attempt Start"  (Decode.string))
+    |> Decode.pipeline (Decode.field "Attempt End"    (Decode.string))
+    |> Decode.pipeline (Decode.field "Section #"      (Decode.blank Decode.int))
+    |> Decode.pipeline (Decode.field "Q #"            (Decode.blank Decode.int))
+    |> Decode.pipeline (Decode.field "Q Type"         (Decode.blank Decode.string))
+    |> Decode.pipeline (Decode.field "Q Title"        (Decode.blank Decode.string))
+    |> Decode.pipeline (Decode.field "Q Text"         (Decode.blank Decode.string))
+    |> Decode.pipeline (Decode.field "Bonus?"         (Decode.blank Decode.string))
+    |> Decode.pipeline (Decode.field "Difficulty"     (Decode.blank Decode.int))
+    |> Decode.pipeline (Decode.field "Answer"         (Decode.blank Decode.string))
+    |> Decode.pipeline (Decode.field "Answer Match"   (Decode.blank Decode.string))
+    |> Decode.pipeline (Decode.field "Score"          (Decode.blank Decode.string))
+    |> Decode.pipeline (Decode.field "Out Of"         (Decode.blank Decode.int))
+
+#+end_src
+
+#+begin_src elm
+type alias QuestionID = (Int, Int)
+#+end_src
+
+#+begin_src elm
+qidToString : QuestionID -> String
+qidToString (s, q) = "Section " ++ String.fromInt s ++ ", Question" ++ String.fromInt q
+#+end_src
+
+#+begin_src elm
+qid : (Maybe Int, Maybe Int) -> QuestionID
+qid x = case x of
+  (Nothing, Nothing) -> (-1, -1)
+  (Nothing, Just j) -> (-1, j)
+  (Just i, Nothing) -> (i, -1)
+  (Just i, Just j) -> (i, j)
+
+qids : List Answer -> List QuestionID
+qids l = unique (map (\x -> qid (.section_num x, .question_num x)) l)
+#+end_src
+
+#+begin_src elm
+hasQid : QuestionID -> Answer -> Bool
+hasQid (s, q) a = (if s == -1 then .section_num a == Nothing else .section_num a == Just s)
+               && (if q == -1 then .question_num a == Nothing else .question_num a == Just q)
+
+getQuestion : QuestionID -> List Answer -> List Answer
+getQuestion q l = filter (hasQid q) l
+#+end_src
+
+#+begin_src elm
+rebreak : String -> String
+rebreak s =
+  let maybeRegex = Regex.fromString "\\s\\s+" in
+  let regex = Maybe.withDefault Regex.never maybeRegex in
+  Regex.replace regex (.match >> (\x -> "\n" ++ x)) s
+#+end_src
+
+* Main
+:Properties:
+:header-args:elm: :tangle ./src/Main.elm
+:End:
+
+This interface based on an example for the ~file~ package for Elm;
+see https://package.elm-lang.org/packages/elm/file/latest/.
+
+** Header
+
+#+begin_src elm
+module Main exposing (..)
+
+import Browser
+import File exposing (File)
+import File.Select as Select
+import Html.Styled exposing (Html, button, p, pre, text, textarea, toUnstyled)
+import Html.Styled.Attributes exposing (style)
+import Html.Styled.Events exposing (onClick)
+import Task
+
+import List exposing (filter)
+
+import Dropdown as Dropdown
+
+import Csv.Decode as Decode exposing (Decoder)
+import Decoder exposing (..)
+
+import LocalCss exposing (..)
+#+end_src
+
+** Main
+
+#+begin_src elm
+main : Program () Model Msg
+main =
+  Browser.element
+    { init = init
+    , view = view >> toUnstyled
+    , update = update
+    , subscriptions = subscriptions
+    }
+#+end_src
+
+** Model
+
+The model consists of
+- the raw contents of the CSV file
+  - (maintained so we can display it on request, in case
+    that helps the user debug any input issues)
+- the collection of answers
+  - (we use a tuple of lists to store them, allowing us to move
+    back and forth through the list), and
+- the text of the “current” answer.
+#+begin_src elm
+type alias Model =
+  { rawContents : Maybe String
+  , answers : Answers
+  , questions : List Dropdown.Item
+  , text : String
+  }
+#+end_src
+
+As mentioned, we use a tuple of lists to store the answers.
+We define functions to “move back and forth” between answers.
+#+begin_src elm
+type alias Answers = (List Answer, List Answer)
+
+emptyAnswers : Answers
+emptyAnswers = ([] , [])
+
+initAnswers : List Answer -> Answers
+initAnswers l = ([] , l)
+
+head : Answers -> Maybe Answer
+head ans = case ans of
+  (_ , x :: _) -> Just x
+  (_ , []) -> Nothing
+
+next : Answers -> Maybe Answers
+next ans = case ans of
+  (ys , x :: xs) -> Just (x :: ys, xs)
+  (_ , []) -> Nothing
+
+prev : Answers -> Maybe Answers
+prev ans = case ans of
+  (x :: xs , ys) -> Just (xs, x :: ys)
+  ([] , _) -> Nothing
+#+end_src
+
+Initially, we have not loaded the file,
+- so we have no raw contents,
+- so the collection of answers is empty, and
+- the text instead prompts us to load the file.
+#+begin_src elm
+init : () -> (Model, Cmd Msg)
+init _ =
+  ( { rawContents = Nothing
+    , answers = emptyAnswers
+    , questions = []
+    , text = "Please load a CSV file."
+    }
+  , Cmd.none )
+#+end_src
+
+** View
+
+#+begin_src elm
+view : Model -> Html Msg
+view model =
+  backgroundDiv []
+    [ menuDiv []
+        [ loadButton [ onClick CsvRequested ] [ text "Load quiz CSV" ]
+        , loadButton [ onClick CsvUnloaded ] [ text "Unload CSV" ]
+        , menuGapDiv [] []
+        -- , 
+        , menuGapDiv [] []
+        , navButton [ onClick PrevAnswer ] [ text "Previous submission" ]
+        , navButton [ onClick NextAnswer ] [ text "Next submission" ]
+        ]
+    , answerDiv [] [ pre [] [ text model.text ] ]
+    , (case model.rawContents of
+         Nothing -> p [] []  
+         Just content ->
+           csvDiv [] [ pre [] [ text content ] ]
+      )
+    ]
+#+end_src
+
+** Update
+
+#+begin_src elm
+type Msg
+  = CsvRequested
+  | CsvSelected File
+  | CsvLoaded String
+  | CsvUnloaded
+  | PrevAnswer
+  | NextAnswer
+
+update : Msg -> Model -> (Model, Cmd Msg)
+update msg model =
+  case msg of
+    CsvRequested ->
+      ( model
+      , Select.file ["text/csv"] CsvSelected
+      )
+
+    CsvSelected file ->
+      ( model
+      , Task.perform CsvLoaded (File.toString file)
+      )
+#+end_src
+
+In the below, I need to:
+- Abstract out the construction of the ~text~ string; there's repetition in
+  the CSV loading, next answer and previous answer message handling.
+- Handle the “questions to mark” setting. For now, it's hardcoded in the calls
+  to ~initAnswers~.
+#+begin_src elm
+    CsvLoaded contents ->
+      let decoded = Decode.decodeCsv Decode.FieldNamesFromFirstRow decoder contents in
+      ( { model | rawContents = Just contents
+                , answers = case decoded of
+                              Ok list -> initAnswers (filter (\x -> .question_num x == Just 4 || .question_num x == Just 5 || .question_num x == Just 6) list)
+                              Err _ -> emptyAnswers
+                --, questions = ...
+                , text = case decoded of
+                           Ok list -> case head (initAnswers (filter (\x -> .question_num x == Just 4 || .question_num x == Just 5 || .question_num x == Just 6) list)) of
+                                        Nothing -> "No questions found."
+                                        Just x -> .firstname x ++ ", " ++ .lastname x ++ "\n\n"
+                                               ++ (case .q_text x of
+                                                     Nothing -> "This question has no question text."
+                                                     Just t -> t)
+                                               ++ "\n\n\n"
+                                               ++ case .answer_match x of
+                                                    Nothing -> "This question has no answer."
+                                                    Just t -> rebreak t
+                           Err err -> "Encountered an error when parsing the CSV: " ++ Decode.errorToString err
+        }
+      , Cmd.none
+      )
+      
+    CsvUnloaded ->
+      ( { model | rawContents = Nothing
+                , answers = emptyAnswers
+                , text = "Please load another CSV file." }
+      , Cmd.none
+      )
+
+    PrevAnswer ->
+      case prev (.answers model) of
+        Nothing -> ( { model | text = "There is no previous submission!" }
+                , Cmd.none
+                )
+        Just ans -> ( { model | answers = ans
+                              , text = case head ans of
+                                         Nothing -> "There should be a previous submission, but I lost it. This should never occur, you have somehow found a bad state."
+                                         Just x -> .firstname x ++ ", " ++ .lastname x ++ "\n\n"
+                                                ++ (case .q_text x of
+                                                      Nothing -> "This question has no question text."
+                                                      Just t -> t)
+                                                ++ "\n\n\n"
+                                                ++ case .answer_match x of
+                                                     Nothing -> "This question has no answer."
+                                                     Just t -> rebreak t
+                      }
+                    , Cmd.none
+                    )
+
+    NextAnswer ->
+      case next (.answers model) of
+        Nothing -> ( { model | text = "There is no next submission!" }
+                , Cmd.none
+                )
+        Just ans -> ( { model | answers = ans
+                              , text = case head ans of
+                                         Nothing -> "There should be a next submission, but I lost it. This should never occur, you have somehow found a bad state."
+                                         Just x -> .firstname x ++ ", " ++ .lastname x ++ "\n\n"
+                                                ++ (case .q_text x of
+                                                      Nothing -> "This question has no question text."
+                                                      Just t -> t)
+                                                ++ "\n\n\n"
+                                                ++ case .answer_match x of
+                                                     Nothing -> "This question has no answer."
+                                                     Just t -> rebreak t
+                      }
+                    , Cmd.none
+                    )
+#+end_src
+
+** Subscriptions
+
+#+begin_src elm
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+  Sub.none
+#+end_src
+
+* CSS definitions
+:Properties:
+:header-args:elm: :tangle ./src/LocalCss.elm
+:End:
+
+** Header
+
+#+begin_src elm
+module LocalCss exposing (..)
+
+import Css exposing (..)
+import Html.Styled exposing (..)
+import Html.Styled.Attributes exposing (..)
+import Html.Styled.Events exposing (..)
+#+end_src
+
+** Divs
+
+#+begin_src elm
+backgroundDiv : List (Attribute msg) -> List (Html msg) -> Html msg
+backgroundDiv =
+  styled Html.Styled.div
+    [ 
+    ]
+#+end_src
+
+#+begin_src elm
+menuDiv : List (Attribute msg) -> List (Html msg) -> Html msg
+menuDiv =
+  styled Html.Styled.div
+    [ backgroundColor (hex "#eee")
+    , marginLeft (rem 5), marginRight (rem 5)
+    , color (hex "#999")
+    , displayFlex
+    ]
+#+end_src
+
+#+begin_src elm
+menuGapDiv : List (Attribute msg) -> List (Html msg) -> Html msg
+menuGapDiv =
+  styled Html.Styled.div
+    [ flexGrow (num 1)
+    ]
+#+end_src
+
+#+begin_src elm
+answerDiv : List (Attribute msg) -> List (Html msg) -> Html msg
+answerDiv =
+  styled Html.Styled.div
+    [ backgroundColor (hex "#fff")
+    , marginLeft (rem 5), marginRight (rem 5)
+    , Css.maxHeight (vh 100)
+    , overflow scroll
+    ]
+#+end_src
+
+#+begin_src elm
+csvDiv : List (Attribute msg) -> List (Html msg) -> Html msg
+csvDiv =
+  styled Html.Styled.div
+    [ backgroundColor (hex "#ddd")
+    , marginLeft (rem 5), marginRight (rem 5)
+    , Css.maxHeight (vh 30)
+    , overflow scroll
+    ]
+#+end_src
+
+** Buttons
+
+#+begin_src elm
+loadButton : List (Attribute msg) -> List (Html msg) -> Html msg
+loadButton =
+  styled Html.Styled.button
+    [
+    ]
+#+end_src
+
+#+begin_src elm
+navButton : List (Attribute msg) -> List (Html msg) -> Html msg
+navButton =
+  styled Html.Styled.button
+    [
+    ]
+#+end_src

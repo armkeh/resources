@@ -1,0 +1,78 @@
+
+* HTML and CSS
+
+** Elm CSS
+
+#+begin_src elm :tangle src/CssDefs.elm
+module CssDefs exposing (..)
+
+import Css exposing (..)
+import Html.Styled exposing (..)
+import Html.Styled.Attributes exposing (..)
+import Html.Styled.Events exposing (..)
+#+end_src
+
+#+begin_src elm :tangle src/CssDefs.elm
+backgroundDiv : List (Attribute msg) -> List (Html msg) -> Html msg
+backgroundDiv =
+  styled Html.Styled.div
+    [ backgroundColor (hex "#000")
+    ]
+#+end_src
+
+#+begin_src elm :tangle src/CssDefs.elm
+historyDiv : List (Attribute msg) -> List (Html msg) -> Html msg
+historyDiv =
+  styled Html.Styled.div
+    [ backgroundColor (hex "#eee")
+    , marginLeft (rem 5), marginRight (rem 5)
+    , Css.height (vh 20)
+    , displayFlex
+    , flexDirection columnReverse
+    , overflow scroll
+    , color (hex "#999")
+    ]
+#+end_src
+
+#+begin_src elm :tangle src/CssDefs.elm
+textDiv : List (Attribute msg) -> List (Html msg) -> Html msg
+textDiv =
+  styled Html.Styled.div
+    [ backgroundColor (hex "#ddd")
+    , marginLeft (rem 5), marginRight (rem 5)
+    , Css.maxHeight (vh 80)
+    , overflow scroll
+    ]
+#+end_src
+
+#+begin_src elm :tangle src/CssDefs.elm
+imagesDiv : List (Attribute msg) -> List (Html msg) -> Html msg
+imagesDiv =
+  styled Html.Styled.div
+    [ backgroundColor (hex "#ccc")
+    , marginLeft (rem 5), marginRight (rem 5)
+    , Css.height (vh 20)
+    , overflow scroll
+    ]
+#+end_src
+
+#+begin_src elm :tangle src/CssDefs.elm
+controlsDiv : List (Attribute msg) -> List (Html msg) -> Html msg
+controlsDiv =
+  styled Html.Styled.div
+    [ backgroundColor (hex "#bbb")
+    , marginLeft (rem 5), marginRight (rem 5)
+    , textAlign center
+    , Css.height (vh 20)
+    , overflow scroll
+    ]
+#+end_src
+
+#+begin_src elm :tangle src/CssDefs.elm
+controlsButton : List (Attribute msg) -> List (Html msg) -> Html msg
+controlsButton =
+  styled Html.Styled.button
+    [
+    ]
+#+end_src
+
